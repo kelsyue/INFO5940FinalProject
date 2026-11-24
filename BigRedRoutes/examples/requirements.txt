@@ -1,0 +1,5 @@
+# Only needed if demonstrating the illustrative FastAPI endpoint and pytest tests.
+fastapi>=0.115,<1
+pydantic>=2,<3
+pytest>=8,<10
+httpx>=0.27,<1

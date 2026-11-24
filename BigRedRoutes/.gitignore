@@ -1,0 +1,22 @@
+# Local development only; AI-DLC official rule files and generated docs must be committed.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+.DS_Store
+.idea/
+.vscode/
+*.db
+*.sqlite
+*.sqlite3
+# Do not commit downloaded third-party GTFS feeds without license review.
+raw-gtfs/
+*.gtfs.zip
