@@ -1,6 +1,6 @@
 # BigRedRoutes — Product Vision and Scope
 
-**Input for AWS AI-DLC v1.0.1 Inception · proposed decisions awaiting team review**  
+**Input for AWS AI-DLC v1.0.1 Inception · team input review reported November 24, 2026; reconciled below through actual requirements answers. Generated requirements and all Inception artifacts subsequently approved through the recorded workflow; implementation remains future work.**  
 **Product:** BigRedRoutes — Travel Planning for Cornell and Beyond  
 **Core user context:** Cornell University, Ithaca, NY; **general itinerary cities:** New York City and Washington, DC  
 **Guiding rule:** A model may recommend and explain; source-grounded tools and deterministic validators decide whether schedule and budget claims are supported.
@@ -29,7 +29,7 @@ People can quickly find lists of attractions but struggle to transform preferenc
 ### General Travel Mode
 
 1. Choose NYC or Washington, DC, travel dates (1–5 days), interests, pace (relaxed/balanced/packed), daily activities budget per person (USD), party size, optional must-see/avoid attractions.
-2. Optionally enter known arrival and departure times (in destination local time). If omitted, start with disclosed defaults; no fake transport leg is created.
+2. Optionally enter known arrival and departure times (in destination local time). If omitted, require user-confirmed first/last-day activity windows before scheduling those days; intermediate days may default to 09:00–18:00. No fake transport leg is created.
 3. Planner retrieves candidate destinations from versioned catalog, schedules non-overlapping visits with zone-based travel-time allowances, checks admission and food budget, and explains its selections.
 4. Display a daily timeline, source assumptions, estimated cost and warnings; revise using natural language (for example, "switch day 2 to more outdoor attractions").
 
@@ -54,14 +54,14 @@ People can quickly find lists of attractions but struggle to transform preferenc
 |---|---|---|
 | `mode` | `general` or `cornell` | Cornell-only inputs hidden in general mode |
 | `destination` | `new-york-city` or `washington-dc` | NYC full Cornell corridor; DC activity planning |
-| `start_date`, `end_date` | 1–5 consecutive days, valid local calendar dates | Future dates only in production; test fixtures may use fixed dates |
+| `start_date`, `end_date` | 1–5 consecutive days, valid local calendar dates | Past, today and future dates allowed; historical plans labeled; source applicability always enforced |
 | `campus_area` | North/West/Central required only in Cornell mode | Do not infer residence from identity |
 | `budget_usd_per_person_day` | $25–$300; activities/food allowance only | Separately display transport cost as unknown unless user supplies fare |
 | `party_size` | 1–4 adults | No child-specific suggestions in MVP |
 | `interests` | 1–4 from history, art, food, architecture, nature, shopping, pop culture | Typed list, no LLM-generated categories |
 | `pace` | relaxed 2 stops/day; balanced 3; packed up to 4 | Not guaranteed if constraints conflict |
 | `mode_preferences` | Optional bus/flight/any and accessibility preferences | Accessibility not guaranteed by routing algorithm; point to provider details |
-| `departure_anchor` | Optional **user-confirmed** provider, stop, departure/arrival times, timezones | Without confirmation show flexible suggestions, not specific verified bus departure |
+| `departure_anchor` | Optional **user-confirmed** provider, stop, departure/arrival times, timezones | Without confirmation require first/last-day activity windows; transfer remains unknown, not a verified departure |
 | `must_see_ids`, `avoid_ids` | IDs from local attraction catalog | Conflicts flagged, never silently ignored |
 | `revision` | Typed targeted/global change; max length | Revalidate fully and show differences |
 
@@ -83,12 +83,12 @@ People can quickly find lists of attractions but struggle to transform preferenc
 | BRR-10 | Arrival/day boundary | First and last day activity schedule honors confirmed travel times and explicit buffers; unknown times appear as assumptions |
 | BRR-11 | Natural-language revision | Revises relevant day or preference, revalidates constraints and preserves unaffected days when possible |
 | BRR-12 | Provenance & freshness | Academic/GTFS/provider data shows source link, as-of date, applicability, and one of `published-schedule`, `reference-link`, `user-provided`, `estimate`, `unavailable` |
-| BRR-13 | Local persistence | Save/reopen draft itinerary locally by generated ID without account/login |
+| BRR-13 | Local persistence | Save/reopen/delete/reset locally with local session authorization; no Cornell login or account signup; no raw chat persistence |
 | BRR-14 | Accessible UI | Text labels/status, keyboard navigation and non-color-only warning distinction; mobile-responsive travel cards |
 
 ## 6. Integration tiers and explicit exclusions
 
-**MVP / strong commitment:** Published Cornell dates in versioned local JSON; local fixture/cached official TCAT GTFS schedule **with feed date boundaries**; static official OurBus/C2C/ITH links and explanatory metadata; curated NYC/DC attractions; planner, validation and revisions.
+**MVP / strong commitment:** Published Cornell dates in versioned local JSON; user-downloaded official TCAT GTFS imported locally **with feed/service-date checks**; synthetic fixtures are test-only; static official OurBus/C2C/ITH links and explanatory metadata; curated NYC/DC attractions; planner, validation and revisions.
 
 **Stretch, only with evidence and time:** Controlled periodic refresh of GTFS, richer C2C published timetable parsing with human verification, transport comparison after user manually enters dates/times/fares, optional static airport service guide.
 
@@ -142,15 +142,20 @@ People can quickly find lists of attractions but struggle to transform preferenc
 | Revision effects | Changes explicitly diffed, unaffected days preserved where feasible |
 | Accessibility/basic UX | Keyboard flow and readable source-status labels validated in UI review |
 
-## 11. Open team decisions before workflow
+## 11. Decisions reconciled through requirements Q&A
 
-- Choose Codex or another **supported** v1.0.1 coding agent; who operates the session?
-- Confirm 2-city attraction catalogs (NYC, DC) and NYC as primary transport coordination demo.
-- Will the team ingest the official TCAT GTFS archive once and include a **license-appropriate subset/fixture**, or import locally at demo time? Verify terms before committing third-party feed data.
-- Should C2C published timetable be stretch-only or a carefully sourced local snapshot in MVP?
-- Is offline demo preferred over network refresh? Which laptop reliably runs Qwen3 4B? Which model fallback is acceptable?
-- Confirm assumptions around admission fee freshness, USD daily budget range, boarding buffer and user-confirmed travel times.
-- Define exact review meeting cadence, named owners, and who approves each AI-DLC gate.
+- Codex with installed AWS AI-DLC v1.0.1; all Inception stages through Units Generation, then stop before Construction.
+- Local-only single-laptop MVP; no cloud deployment, production SLA or regional redundancy. Kelly Yue's reported demo machine: macOS Tahoe 26.5.2, 16 GB RAM. User reports Qwen3 4B works; benchmark and bounded-tool validation remain future checks.
+- Dyllan Hofflich owns permissions, Registrar/provider verification and feed coverage review. Import user-downloaded GTFS locally; no unlicensed raw feed in Git. C2C remains links-only for MVP.
+- At least 12 sourced attractions per city. Unknown/inapplicable hours mean unscheduled suggestions until a user confirms a window. Unknown fees prevent an unqualified within-budget claim.
+- Food plus admission budget $25–$300/person/day, with user-selected food allowance; transport/lodging excluded. Boarding/arrival/departure margins default to 15/60/90 minutes and can increase.
+- Missing first/last-day travel anchors require confirmed activity windows. Infeasibility produces partial plans and asks which constraints to change; never silently relax constraints.
+- Targeted revisions preserve unrelated days/anchors and require confirmation for broader changes. Model failure exposes structured deterministic planning; natural-language operations remain unavailable until recovery.
+- Team reports all four members reviewed online via Zoom November 24, 2026 and accepted roles/cadence. Current session operator identity remains an administrative follow-up, not an invented fact.
+- Security, Resiliency and full PBT extensions enabled. Extra local encryption, protected logging, HTTPS/security headers and saved-plan authorization accepted; detailed mechanisms await design. Formal change management exempt for local course prototype; Git/AI-DLC records still apply.
+- Local backup/restore details are proposed for review in `../aidlc-docs/inception/requirements/requirements.md`, not a prior team commitment. No numeric recovery targets were selected.
+
+These changes reconcile actual user answers; they do not replace approval of generated requirements. Exact dependency pins, local security mechanisms, CI/release process and implementation checks remain later-stage decisions.
 
 ## 12. Primary source links to preserve
 

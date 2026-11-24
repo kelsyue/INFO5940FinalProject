@@ -1,6 +1,6 @@
 # BigRedRoutes — Technical Environment & Engineering Constraints
 
-**AWS AI-DLC v1.0.1 input document; proposal subject to real team review.**  
+**AWS AI-DLC v1.0.1 input document; team review reported November 24, 2026. Requirements Q&A reconciliation below does not imply approval of the generated requirements or a completed implementation.**  
 **Chosen concept:** Two-mode, locally demonstrable Cornell-aware + general travel itinerary planner.  
 **Important:** This document specifies a design; it is not proof that the full application has been coded or external APIs are integrated.
 
@@ -28,7 +28,7 @@ Choose and pin exact working minors in Construction after running the environmen
 
 Local-only demo: **Browser** `localhost:5173` → **FastAPI** `localhost:8000` → **SQLite/curated JSON, GTFS fixture** and optional **Ollama** `localhost:11434`. No cloud account, Cornell login, API key or payment platform is required. The app must offer a read-only deterministic fallback/warning when local model inference fails, rather than fabricate a result. Demo data must be bundled or downloaded under permitted licenses and accurately attributed; fake *transport times* may be used only inside clearly labeled unit-test fixtures, never surfaced as real provider schedules.
 
-**Model availability gate:** Team checks the selected laptop RAM/model latency and confirms Ollama version/availability before committing to Qwen3 4B. The code should isolate the LLM behind `LLMClient` so a model change can be made without changing planning logic. The coding agent (Codex/Cursor/etc.) is **distinct** from the product LLM. AI-DLC workflow uses official **v1.0.1** rules.
+**Model availability gate:** Kelly Yue’s laptop is reported as macOS Tahoe 26.5.2 with 16 GB RAM; the team reports Qwen3 4B works. Ollama version, structured tool behavior and measured latency remain to be checked during Construction. The code should isolate the LLM behind `LLMClient` so a model change can be made without changing planning logic. The coding agent (Codex/Cursor/etc.) is **distinct** from the product LLM. AI-DLC workflow uses official **v1.0.1** rules.
 
 ## 3. Logical architecture
 
@@ -155,7 +155,7 @@ Content-Type: application/json
 
 ## 7. Planning rules and deterministic invariants
 
-- Two mode validation: `cornell` requires campus origin; `general` rejects/ignores campus fields as a policy decision documented in tests.
+- Two mode validation: `cornell` requires campus origin; `general` must clear incompatible fields on mode switch or flag them for correction; General planning must not depend on Cornell data.
 - Trip length ≤5 days; no timezone-naive travel anchors; travel anchors explicitly labeled `user-provided` unless sourced from a valid timetable.
 - No overlapping destination activity blocks; no duplicate venue within a day; venues must belong to selected city's catalog.
 - Every planned activity must fit inside user-selected day window and any **confirmed** arrival/departure constraint, with conservative buffer (proposed 60 minutes after arrival before sightseeing, 90 minutes before travel departure; planning heuristics, **not provider boarding rules**).
@@ -169,7 +169,7 @@ Content-Type: application/json
 
 ## 8. LLM tool schema and safety
 
-Allowed tools (read-only): `list_academic_breaks`, `list_provider_links`, `search_tcat_static`, `search_attractions`, `get_plan_constraints`, `validate_plan`. No general shell execution, web scraping, arbitrary URLs, email access, booking, payments, or PII access. Backend validates tool arguments against fixed enums and allowed dates, caps loops/tool calls (e.g. ≤6 per request), applies per-call timeouts (e.g. 15 sec) and handles invalid JSON with one repair attempt followed by transparent fallback. The LLM may narrate *only values present in trusted tool output*, and its text is never treated as proof that a seat/time exists.
+Allowed tools (read-only): `list_academic_breaks`, `list_provider_links`, `search_tcat_static`, `search_attractions`, `get_plan_constraints`, `validate_plan`. No general shell execution, web scraping, arbitrary URLs, email access, booking, payments, or PII access. Backend validates tool arguments against fixed enums and allowed dates, caps tool calls at 6 per request, applies 15-second per-tool deadlines and a 150-second overall deadline (including at most one repair) and handles invalid JSON with one repair attempt followed by transparent fallback. The LLM may narrate *only values present in trusted tool output*, and its text is never treated as proof that a seat/time exists.
 
 Prompt-injection defense: External descriptions, links, attraction metadata and calendar text are **untrusted data**, not instructions; tools can be called only from backend-defined function registry. No model output may write to files or call provider APIs autonomously. For a versioned catalog, store hashes or checked source timestamps to detect unexpected changes.
 
@@ -211,7 +211,7 @@ Prompt-injection defense: External descriptions, links, attraction metadata and 
 | Headless access to Cornell authentication or student course calendar | Personal data and integration/consent complexity | Public Registrar calendar only; user types own dates |
 | LLM-generated transit timetables or opening hours | Hallucinations and reliability | Source date and official feed + unknown fallback |
 | Docker/Kubernetes mandatory for demo | Setup overhead on student laptops | `venv`, npm, Ollama local; Docker optional later |
-| Browser-side secrets or uploading itinerary prompts to public logs | Privacy/security | No secrets required; optional local session only |
+| Browser-side secrets or uploading itinerary prompts to public logs | Privacy/security | Locally generated credentials/keys stay outside Git and are protected by the OS; no provider secrets required |
 
 ## 12. Responsibilities and team decisions
 
@@ -220,3 +220,21 @@ The team should collectively decide exact dependency pins, local laptop environm
 ## 13. Data provider references
 
 Read [`data-sources.md`](data-sources.md) for official links and practical integration limits. Key references: [AWS AI-DLC v1.0.1](https://github.com/awslabs/aidlc-workflows/blob/v1.0.1/README.md), [Cornell Registrar](https://registrar.cornell.edu/calendars-exams/academic-calendar/2026-2027), [TCAT GTFS feed](https://www.transit.land/data/feeds/f-dr997-tompkinsconsolidatedareatransit), [OurBus Ithaca to NYC](https://www.ourbus.com/routes/ithaca-to-nyc), [C2C schedule](https://www.fcs.cornell.edu/departments/transportation-delivery-services/campus-campus-bus-service/c2c-departure-schedule-stop-locations), [ITH flight status](https://www.flyithaca.com/flights).
+
+
+## 14. Reconciliation from actual Requirements Analysis answers
+
+The team's latest scope is **one local laptop; no cloud**. Plain HTTP port examples above describe logical components, not the final secured serving configuration. Full applicable Security enforcement was explicitly retained, including encrypted persistent stores/backups with OS-managed or equivalent keys, protected centralized local logs, local HTTPS/security headers and local session/object authorization for saved plans. No Cornell or external account signup is introduced. Exact mechanisms require Application Design review; current examples do not implement them.
+
+The team accepts at least 12 sourced venues per city; locally import a user-downloaded genuine TCAT archive; never surface synthetic tests as actual service. Dyllan owns source review. Past dates are allowed with historical labeling. First/last-day activity windows must be user-confirmed when travel anchors are missing; intermediate days may default to 09:00–18:00. Unknown hours leave venues unscheduled until confirmed. Unknown fees remain incomplete. Food allowance is inside the $25–$300 per-person/day food-plus-admission budget; transport/lodging excluded.
+
+Partial plans explain unmet constraints and ask which constraints to change before applying changes. Revisions preserve unrelated days/anchors until broader changes are confirmed. Local model failures offer structured deterministic planning while disabling natural-language operations. SQLite retains structured plans/constraints/provenance, not raw chats, and supports delete/reset.
+
+The performance target is 95% of warmed-model requests within 120 seconds, with a 150-second total deadline, six tool calls maximum, 15 seconds per tool call and at most one malformed-output repair within that same budget. Non-LLM lookups target two seconds. These are targets, not measured results.
+
+Security, Resiliency and full PBT remain enabled. Hypothesis and fast-check are proposed PBT tools in the requirements draft, requiring later dependency/configuration verification. No production cloud SLA, multi-zone topology or regional recovery guarantee is required. The requirements draft proposes automated encrypted local latest-state snapshots and a restore check; no numeric RTO/RPO or seven-day/hourly policy was selected by the team. Formal organizational change management is exempt for this course prototype; Git/AI-DLC reviews remain. See `../aidlc-docs/inception/requirements/requirements.md` for the reviewable requirements, local backup proposal and stage-specific extension applicability.
+
+
+## Inception completion record
+
+All Inception artifacts, including generated units, were subsequently approved through the actual workflow. The final instruction is “Approve units and stop before Construction”. See `../aidlc-docs/aidlc-state.md` and `../aidlc-docs/audit.md`. Reconciliation/proposal language above describes earlier inputs/design discussions; it does not mean implementation, exact package compatibility, OS setup or runtime checks have been completed.

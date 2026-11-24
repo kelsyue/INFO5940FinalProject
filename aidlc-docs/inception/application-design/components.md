@@ -1,0 +1,41 @@
+# BigRedRoutes — Components
+
+**Status:** APPROVED. Exact user response “Approve & Continue”, recorded 2026-11-24T17:34:08Z in `../../audit.md`. No implementation, OS configuration or test success is implied.
+**Architecture:** React UI and one modular FastAPI application on one laptop; supporting Ollama, local HTTPS serving and an independently owned local log collector. No cloud, external job broker or per-feature microservice.
+
+## Component catalog
+
+| ID / component | Purpose and responsibilities | Interface / data boundary | Criticality and failure impact |
+|---|---|---|---|
+| C01 BrowserUI | Mode/preferences, confirmed windows, job progress/cancel, day/provenance/budget cards, revision diff/confirmation, save/delete/reset and aggregate readiness | Same-origin HTTPS API only; never direct SQLite, model or filesystem access. Render text, not model HTML; no raw prompts/tokens in local storage | High: unavailable UI prevents traveler interaction; keyboard/text status required |
+| C02 ApiBoundary | Typed request/response validation, owner guards, CSRF/origin checks, rate/body limits, deadline context and safe errors | Uses C03 before C04/C11/C13; no direct model-controlled repository operations. Static shell and minimal liveness explicitly public; all user data routes protected | High: unavailable API stops planning/local resource access |
+| C03 LocalIdentity | Stable local owner, one-use bootstrap, opaque expiring sessions, ownership/capability checks, logout/expiry revocation | OS-protected secrets/config; browser Secure/HttpOnly/SameSite=Strict cookie; credentials never enter logs, models or job payloads | High: fail closed if identity cannot be validated; no public signup/password/admin role |
+| C04 JobCoordinator | Owned bounded in-memory queue/results, submit/poll/cancel/expiry, session-bound work, restart epoch and completion publication | One active/one waiting planning job; invokes C05, never arbitrary user functions. Job objects have owner/session IDs and accepted/deadline instants | Medium for new generation, High for mutation safety: failed jobs cannot alter existing plans; reads/references remain direct |
+| C05 PlanningOrchestrator | Both-mode flow, source retrieval, model interpretation/explanation, deterministic candidate planning, result/diff and validation | Invokes C06–C11 through declared interfaces; a model can propose constraints/tool calls but cannot save. Produces typed PlanResult, not trusted prose-only plan | High for new plans: unavailable orchestrator leaves saved reads and references usable |
+| C06 ModelGateway | Ollama interaction, bounded output/repair, explicit model-unavailable handling | Allowlisted local model endpoint; bounded request time/output. No direct database, auth/key store, log files or shell access | Medium: deterministic structured-input fallback remains available |
+| C07 ToolRegistry | Dispatch only typed academic/provider/GTFS/attraction/constraint/validation tool calls; share request limits | Allowlist; rejects unknown tool/arguments/result IDs, no arbitrary URL or file access. Returns source-stamped data from C08/C09 | High for trust: failure disables unsafe agent calls, never bypasses validators |
+| C08 SourceCatalog | Academic snapshot, provider links and city attraction catalog, sources/applicability, unknown hours/fees | Read-only typed catalog interfaces; ≥12 sourced venues/city. Runtime data private/protected, reviewed non-sensitive input seeds may be versioned in Git | Medium: absent data yields unavailable/partial outcomes, not invented facts |
+| C09 TcatAdapter | Operator-controlled GTFS import, archive validation, service/calendar/exception/path applicability and aware schedule records | Local user-selected archive only, no web scraping. Runtime import cache on encrypted volume; synthetic fixtures excluded from runtime import selection | Medium: absent/invalid feed leaves official links and destination planning usable |
+| C10 DomainPlanner | Input/window, schedule, transfer, cost and provenance validation; bounded deterministic scheduling and structured issues | Typed inputs/evidence; no model/network/session/database dependencies. Separate named submodules for time, schedule, cost and provenance | High: cannot produce or save a plan without its invariant checks |
+| C11 PlanLifecycle | Sole saved-plan mutation/read/restore boundary, owner/version checks, serialized commit/delete/reset and deletion ledger enforcement | C12 repository/snapshot port; accepts trusted principal and guard context, never trusts owner IDs supplied by client/model. Explicit commit receipts and backup status | High: fail closed on integrity/ledger errors; no unsafe fallback writes |
+| C12 ProtectedStore | Parameterized SQLite operations, verified latest-state snapshots and non-rollback deletion ledger in encrypted storage | No database TCP listener. C11 alone owns mutation access. Ledger is outside replaceable plan snapshots; runtime keystore/ledger/backup paths never under Git | High: inaccessible/corrupt store prevents stateful operations; independent references may remain available |
+| C13 ReadinessMonitor | App/model/source/vault/collector/backup/job status, safe aggregate metrics and security alert view | Read-only bounded observations; reveals no secrets, raw logs, raw requests or private itineraries. Every resource-rich status route authorized | Medium: degraded diagnostics visible; security-unready dependencies deny affected stateful operations |
+| C14 RuntimeSecurity | Local encrypted-volume/key readiness, secure serving configuration, trusted origins, safe startup/shutdown, certificate/key handling | OS-protected keys; no automatic OS-account/certificate/volume changes during Inception. Verifies required local protections before stateful startup | High: missing required protections fail startup for affected operations |
+| C15 ProtectedLogCollector | Central structured append-only/tamper-evident event collection, retention and security/failure alerts | Separate OS identity owns its encrypted log store. App has event-submit and aggregate-query IPC permission only, no log rewrite/delete/raw-read permission | High for security readiness: denied/unhealthy collector blocks security-sensitive mutations; no plaintext/unprotected alternate log |
+
+Criticality is local demo impact, not a production SLA or safety certification. Supporting processes are not application units merely because they run separately; Units Generation will classify delivery boundaries.
+
+## Required boundaries
+
+- C01/C06/C07 cannot access C12 directly. All saved-plan operations cross C02/C03 and C11; background work also crosses C04 guards.
+- User confirmation is structured and tied to the current proposal/plan version. Neither “confirm” embedded in provider/model text nor an outdated browser diff authorizes broader changes.
+- C08/C09 facts and model text are untrusted at input boundaries. C10 validates typed values and provenance; narratives cannot upgrade source status.
+- C11/C12 hold a non-rollback deletion fence. Restoring an old plan database cannot replace its owner identity, current ledger, revocation state or job epoch.
+- C15 has a separate encrypted volume/container or separately permissioned encrypted storage managed by its OS identity. The application cannot alter logs because both credentials and directory ownership are separated. Laptop root/OS compromise is outside this application threat boundary; do not claim protection from an operator who can override OS controls.
+- All runtime persistent stores/caches, SQLite journal/WAL/temp spill, snapshots, ledger and log storage must use verified encrypted locations. No unencrypted fallback paths. Memory-only job data must not be written into debug dumps or prompt logs by the app.
+
+## Design dependencies and verification
+
+Method contracts: `component-methods.md`. Orchestration/security/recovery: `services.md`. Allowed calls and data flow: `component-dependency.md`. Decisions/coverage/compliance and outstanding Construction checks: `application-design.md`.
+
+The encrypted-volume, separate-identity collector, session/certificate setup and measured model behavior require Construction feasibility verification. Documentation is not proof of any OS configuration or passing test.
